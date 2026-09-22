@@ -1,0 +1,92 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Role;
+use App\Models\User;
+use App\Repositories\Contracts\RoleRepositoryInterface;
+use App\Repositories\Contracts\UserRepositoryInterface;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
+
+class AuthService
+{
+    public function __construct(
+        private UserRepositoryInterface $userRepository,
+        private RoleRepositoryInterface $roleRepository
+    ) {}
+
+    public function register(array $data): array
+    {
+        $userData = [
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => Hash::make($data['password']),
+        ];
+
+        /** @var User $user */
+        $user = $this->userRepository->create($userData);
+
+        // Assign default role (e.g. 'user')
+        $defaultRoles = $this->roleRepository->getDefaultRoles();
+        if ($defaultRoles->isNotEmpty()) {
+            $this->userRepository->syncRoles($user, $defaultRoles->pluck('id')->toArray());
+        }
+
+        $user->load('roles');
+
+        $token = $user->createToken(
+            'auth_token',
+            ['*'],
+            Carbon::now()->addDays(7)
+        )->plainTextToken;
+
+        return [
+            'user' => $user,
+            'token' => $token,
+            'roles' => $user->getRoleNames(),
+        ];
+    }
+
+    public function login(string $email, string $password): array
+    {
+        if (!Auth::attempt(['email' => $email, 'password' => $password])) {
+            throw ValidationException::withMessages([
+                'email' => ['Invalid email or password.'],
+            ]);
+        }
+
+        /** @var User $user */
+        $user = $this->userRepository->findByEmail($email);
+        $user->load('roles');
+
+        $token = $user->createToken(
+            'auth_token',
+            ['*'],
+            Carbon::now()->addDays(7)
+        )->plainTextToken;
+
+        return [
+            'user' => $user,
+            'token' => $token,
+            'roles' => $user->getRoleNames(),
+        ];
+    }
+
+    public function logout(User $user): void
+    {
+        $user->currentAccessToken()?->delete();
+    }
+
+    public function getMe(User $user): array
+    {
+        $user->load('roles');
+
+        return [
+            'user' => $user,
+            'roles' => $user->getRoleNames(),
+        ];
+    }
+}
