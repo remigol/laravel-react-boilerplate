@@ -90,7 +90,7 @@ laravel-react-boilerplate/
 │   ├── vite.config.ts                          # Vite with /api proxy to backend:8000
 │   └── package.json
 │
-├── package.json                                # Root workspace runner
+├── .gitignore
 └── README.md                                   # Comprehensive Developer Tutorial
 ```
 
@@ -124,10 +124,10 @@ Ensure you have installed:
 
 ### 2. Initial Setup (One-Time)
 
-From the root project directory, run:
+Set up both applications in their respective directories:
 
 ```bash
-# Set up backend (installs composer, creates .env, sets app key, runs migrations & seeds)
+# 1. Set up backend (installs composer, creates .env, sets app key, runs migrations & seeds)
 cd backend
 composer install
 cp .env.example .env
@@ -136,43 +136,31 @@ touch database/database.sqlite
 php artisan migrate:fresh --seed
 cd ..
 
-# Set up frontend (installs npm dependencies)
+# 2. Set up frontend (installs npm dependencies)
 cd frontend
 npm install
 cd ..
-
-# Or simply run the root setup script:
-npm run setup
 ```
 
 ### 3. Running the Development Servers
 
-You can run both Backend and Frontend together or in separate terminal tabs:
+Open two terminal tabs to run Backend and Frontend:
 
-#### Option A: Unified Single Command (Recommended)
-Run from the root directory:
-```bash
-npm run dev
-```
-This concurrently boots:
-- **Backend API**: `http://localhost:8000`
-- **Frontend SPA**: `http://localhost:5173`
-
-#### Option B: Dedicated Separate Terminals
-
-**Terminal 1 (Backend)**:
+#### Terminal 1: Backend API (Laravel 12)
 ```bash
 cd backend
-php artisan serve --port=8000
+php artisan serve
 ```
+Runs at: **`http://localhost:8000`**
 
-**Terminal 2 (Frontend)**:
+#### Terminal 2: Frontend SPA (React 19 + Vite 7)
 ```bash
 cd frontend
 npm run dev
 ```
+Runs at: **`http://localhost:5173`**
 
-Open `http://localhost:5173` in your browser. The Vite dev server automatically proxies `/api/*` calls to the Laravel API running at `http://localhost:8000`.
+Open **`http://localhost:5173`** in your browser. The Vite development server automatically proxies all `/api/*` network requests directly to the Laravel API running at `http://localhost:8000`.
 
 ---
 
