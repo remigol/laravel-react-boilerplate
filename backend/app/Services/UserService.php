@@ -3,16 +3,16 @@
 namespace App\Services;
 
 use App\Models\User;
-use App\Repositories\Contracts\RoleRepositoryInterface;
-use App\Repositories\Contracts\UserRepositoryInterface;
+use App\Repositories\RoleRepository;
+use App\Repositories\UserRepository;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Hash;
 
 class UserService
 {
     public function __construct(
-        private UserRepositoryInterface $userRepository,
-        private RoleRepositoryInterface $roleRepository
+        private UserRepository $userRepository,
+        private RoleRepository $roleRepository
     ) {}
 
     public function getAllUsers(): Collection

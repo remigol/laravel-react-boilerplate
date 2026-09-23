@@ -31,21 +31,14 @@ laravel-react-boilerplate/
 │   │   ├── Models/
 │   │   │   ├── User.php                        # User model with RBAC helpers
 │   │   │   └── Role.php                        # Role model (slug, name, is_default)
-│   │   ├── Repositories/                       # Data access abstraction
-│   │   │   ├── Contracts/
-│   │   │   │   ├── BaseRepositoryInterface.php
-│   │   │   │   ├── UserRepositoryInterface.php
-│   │   │   │   └── RoleRepositoryInterface.php
-│   │   │   └── Eloquent/
-│   │   │       ├── BaseRepository.php
-│   │   │       ├── UserRepository.php
-│   │   │       └── RoleRepository.php
-│   │   ├── Services/                           # Business logic layer
-│   │   │   ├── AuthService.php
-│   │   │   ├── UserService.php
-│   │   │   └── RoleService.php
-│   │   └── Providers/
-│   │       └── RepositoryServiceProvider.php   # Dependency injection bindings
+│   │   ├── Repositories/                       # Data access layer (Direct CRUD methods)
+│   │   │   ├── BaseRepository.php              # Generic CRUD (all, find, create, update, delete)
+│   │   │   ├── UserRepository.php              # User queries & role sync
+│   │   │   └── RoleRepository.php              # Role queries
+│   │   └── Services/                           # Business logic layer (directly injects Repositories)
+│   │       ├── AuthService.php
+│   │       ├── UserService.php
+│   │       └── RoleService.php
 │   ├── config/cors.php                         # CORS allowed for Vite dev server
 │   ├── database/
 │   │   ├── migrations/                         # Users, Roles, User_Roles, Sanctum
@@ -272,35 +265,18 @@ class Article extends Model
 
 ---
 
-### Step 3: Backend - Repository Layer (Contract & Implementation)
+### Step 3: Backend - Repository Layer
+Create `backend/app/Repositories/ArticleRepository.php` extending `BaseRepository`:
 
-#### 1. Contract: `backend/app/Repositories/Contracts/ArticleRepositoryInterface.php`
 ```php
 <?php
 
-namespace App\Repositories\Contracts;
+namespace App\Repositories;
 
 use App\Models\Article;
 use Illuminate\Database\Eloquent\Collection;
 
-interface ArticleRepositoryInterface extends BaseRepositoryInterface
-{
-    public function findBySlug(string $slug): ?Article;
-    public function allWithAuthor(): Collection;
-}
-```
-
-#### 2. Eloquent Implementation: `backend/app/Repositories/Eloquent/ArticleRepository.php`
-```php
-<?php
-
-namespace App\Repositories\Eloquent;
-
-use App\Models\Article;
-use App\Repositories\Contracts\ArticleRepositoryInterface;
-use Illuminate\Database\Eloquent\Collection;
-
-class ArticleRepository extends BaseRepository implements ArticleRepositoryInterface
+class ArticleRepository extends BaseRepository
 {
     public function __construct(Article $model)
     {
@@ -319,19 +295,10 @@ class ArticleRepository extends BaseRepository implements ArticleRepositoryInter
 }
 ```
 
-#### 3. Bind in `backend/app/Providers/RepositoryServiceProvider.php`
-Add the binding inside the `register()` method:
-```php
-$this->app->bind(
-    \App\Repositories\Contracts\ArticleRepositoryInterface::class,
-    \App\Repositories\Eloquent\ArticleRepository::class
-);
-```
-
 ---
 
 ### Step 4: Backend - Service Layer
-Create `backend/app/Services/ArticleService.php` to encapsulate business logic:
+Create `backend/app/Services/ArticleService.php` which directly injects `ArticleRepository`:
 
 ```php
 <?php
@@ -339,14 +306,14 @@ Create `backend/app/Services/ArticleService.php` to encapsulate business logic:
 namespace App\Services;
 
 use App\Models\Article;
-use App\Repositories\Contracts\ArticleRepositoryInterface;
+use App\Repositories\ArticleRepository;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 
 class ArticleService
 {
     public function __construct(
-        private ArticleRepositoryInterface $articleRepository
+        private ArticleRepository $articleRepository
     ) {}
 
     public function getAllArticles(): Collection
