@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthService
 {
@@ -77,7 +78,11 @@ class AuthService
 
     public function logout(User $user): void
     {
-        $user->currentAccessToken()?->delete();
+        /** @var PersonalAccessToken|null $token */
+        $token = $user->currentAccessToken();
+        if ($token instanceof PersonalAccessToken) {
+            $token->delete();
+        }
     }
 
     public function getMe(User $user): array
