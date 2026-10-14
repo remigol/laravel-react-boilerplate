@@ -14,6 +14,8 @@ export const UserListPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRole, setSelectedRole] = useState('all');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
@@ -21,13 +23,18 @@ export const UserListPage: React.FC = () => {
 
   const loadUsers = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const response = await userApi.getUsers();
-      if (response.data) {
-        setUsers(response.data);
+      if (!response.success || !Array.isArray(response.data)) {
+        throw new Error(response.message || 'Invalid user response.');
       }
-    } catch (err: any) {
-      error(err.message || 'Failed to load users.');
+      setUsers(response.data);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load users.';
+      setUsers([]);
+      setLoadError(message);
+      error(message);
     } finally {
       setIsLoading(false);
     }
@@ -56,21 +63,27 @@ export const UserListPage: React.FC = () => {
       await userApi.deleteUser(user.id);
       success('User deleted successfully.');
       loadUsers();
-    } catch (err: any) {
-      error(err.message || 'Failed to delete user.');
+    } catch (err: unknown) {
+      error(err instanceof Error ? err.message : 'Failed to delete user.');
     }
   };
 
+  const availableRoles = useMemo(() =>
+    Array.from(new Set(users.flatMap((user) => user.role_names ?? []))).sort(),
+    [users]
+  );
+
   const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return users;
-    const query = searchQuery.toLowerCase();
-    return users.filter(
-      (u) =>
-        u.name.toLowerCase().includes(query) ||
-        u.email.toLowerCase().includes(query) ||
-        u.role_names?.some((r) => r.toLowerCase().includes(query))
-    );
-  }, [users, searchQuery]);
+    const query = searchQuery.trim().toLowerCase();
+    return users.filter((user) => {
+      const matchesRole = selectedRole === 'all' || user.role_names?.includes(selectedRole);
+      const matchesSearch = !query ||
+        user.name.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query) ||
+        user.role_names?.some((role) => role.toLowerCase().includes(query));
+      return matchesRole && matchesSearch;
+    });
+  }, [users, searchQuery, selectedRole]);
 
   const columns: Column<User>[] = [
     {
@@ -156,8 +169,8 @@ export const UserListPage: React.FC = () => {
         }
       />
 
-      {/* Search toolbar */}
-      <div className="mb-6 flex items-center justify-between gap-4">
+      {/* Search and role filters */}
+      <div className="mb-6 flex flex-wrap items-center gap-3">
         <div className="max-w-xs w-full">
           <Input
             placeholder="Search by name, email, or role..."
@@ -166,10 +179,32 @@ export const UserListPage: React.FC = () => {
             leftIcon={<Search className="h-4 w-4" />}
           />
         </div>
-        <span className="text-xs text-slate-500">
+        <label htmlFor="role-filter" className="sr-only">Filter by role</label>
+        <select
+          id="role-filter"
+          value={selectedRole}
+          onChange={(e) => setSelectedRole(e.target.value)}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
+        >
+          <option value="all">All roles</option>
+          {availableRoles.map((role) => <option key={role} value={role}>{role}</option>)}
+        </select>
+        <Button
+          onClick={() => { setSearchQuery(''); setSelectedRole('all'); }}
+          disabled={!searchQuery && selectedRole === 'all'}
+        >
+          Clear filters
+        </Button>
+        <span className="ml-auto text-xs text-slate-500">
           Showing {filteredUsers.length} of {users.length} users
         </span>
       </div>
+      {loadError && (
+        <div role="alert" className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          Failed to load users: {loadError}
+          <button type="button" onClick={() => void loadUsers()} className="ml-3 font-semibold underline">Retry</button>
+        </div>
+      )}
 
       {/* Users table */}
       <Table
